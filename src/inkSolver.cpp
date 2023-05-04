@@ -2,9 +2,11 @@
 using namespace Eigen;
 using namespace std;
 
-void System::solve(){
-    double timeStep = updateWaterGrid();
+
+double System::solve(double timeToNextRender){
+    double timeStep = updateWaterGrid(timeToNextRender);
     updateParticles(timeStep);
+    return timeStep;
 }
 
 void System::updateParticles(double timeStep){
@@ -12,13 +14,15 @@ void System::updateParticles(double timeStep){
     #pragma omp parallel for
     for (Particle &inkPtcl: m_ink) {
         /// equation 9
-        inkPtcl.velocity = DENSITY * getVelocity(inkPtcl.position);
+        inkPtcl.velocity = DENSITY * getVelocity(inkPtcl.position, CURRVELOCITY);
         /// equation 7
         Vector3d midParticlePos = inkPtcl.position + (inkPtcl.velocity * timeStep * .5);
         /// get midpoint particle pos from velocity field
-        Vector3d midParticleVel = DENSITY * getVelocity(midParticlePos);
+        Vector3d midParticleVel = DENSITY * getVelocity(midParticlePos, CURRVELOCITY);
         /// equation 8
         inkPtcl.position = midParticlePos + (timeStep * midParticleVel);
+
+        cout << "Particle Velocity: " << inkPtcl.velocity.y() << endl;
 
         /// Fixing x
         if (inkPtcl.position.x() < 0 || inkPtcl.position.x() > WATERGRID_X*CELL_DIM) {

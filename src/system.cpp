@@ -55,18 +55,28 @@ int nonZeroRand() {
 //    return (ret != 0) ? ret : 1;
 }
 
+double randBetween(double min, double max)
+{
+    double result = min + ((double) rand() / RAND_MAX) * (max - min);
+    assert(min <= result && result <= max && !isinf(result) && !isnan(result) );
+    return result;
+}
+
 /// Returns a random position within the specified ranges
 Vector3d getRandPosWithinRange(double minX, double maxX,
                                double minY, double maxY,
-                               double minZ, double maxZ) {
-    double x = minX + ((maxX - minX) / (nonZeroRand() % 100 + 1));
-    assert(!isinf(x) || !isnan(x));
-    double y = minY + ((maxY - minY) / (nonZeroRand() % 100 + 1));
-    assert(!isinf(y) || !isnan(y));
-    double z = minZ + ((maxZ - minZ) / (nonZeroRand() % 100 + 1));
-    assert(!isinf(z) || !isnan(z));
-
-    return Vector3d(x, y, z);
+                               double minZ, double maxZ)
+{
+//    double x = minX + ((maxX - minX) / (nonZeroRand() % 100 + 1));
+//    assert(!isinf(x) || !isnan(x));
+//    double y = minY + ((maxY - minY) / (nonZeroRand() % 100 + 1));
+//    assert(!isinf(y) || !isnan(y));
+//    double z = minZ + ((maxZ - minZ) / (nonZeroRand() % 100 + 1));
+//    assert(!isinf(z) || !isnan(z));
+    return Vector3d(
+        randBetween(minX, maxX),
+        randBetween(minY, maxY),
+        randBetween(minZ, maxZ));
 }
 
 /// Initializes INIT_NUM_PARTICLES Particle structs
@@ -75,9 +85,9 @@ void System::initParticles() {
     for (int i = 0; i < INIT_NUM_PARTICLES; i++) {
         /// Create the particle
         Particle particle {
-            .position = getRandPosWithinRange(WATERGRID_X/2.f-0.2, WATERGRID_X/2.f+0.2,
+            .position = getRandPosWithinRange(WATERGRID_X/2.f-.2, WATERGRID_X/2.f+.2,
                                               WATERGRID_Y - 0.1, WATERGRID_Y - 0.1,
-                                              WATERGRID_Z/2.f-0.2, WATERGRID_Z/2.f+0.2), // CUSTOMIZABLE
+                                              WATERGRID_Z/2.f-.2, WATERGRID_Z/2.f+.2), // CUSTOMIZABLE
             .velocity = Vector3d{0, 0, 0}, // CUSTOMIZABLE
             .opacity  = 1.f,
             .lifeTime = 5.f // CUSTOMIZABLE

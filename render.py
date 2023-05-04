@@ -9,11 +9,11 @@ from typing import Tuple
 import numpy as np
 
 # Options.
-meshFolder = "/Users/helenhuang/course/cs2240/DaDDi/output"  # Folder without ending "\\".
-renderFolder = "/Users/helenhuang/course/cs2240/DaDDi/renders"  # Output folder (without ending "\\").
+# meshFolder = "/Users/helenhuang/course/cs2240/DaDDi/output"  # Folder without ending "\\".
+# renderFolder = "/Users/helenhuang/course/cs2240/DaDDi/renders"  # Output folder (without ending "\\").
 
-# meshFolder = "/Users/mandyhe/Documents/Spring2023/Graphics/DaDDi/output"  # Folder without ending "\\".
-# renderFolder = "/Users/mandyhe/Documents/Spring2023/Graphics/DaDDi/output"  # Output folder (without ending "\\").
+meshFolder = "/Users/mandyhe/Documents/Spring2023/Graphics/DaDDi/output"  # Folder without ending "\\".
+renderFolder = "/Users/mandyhe/Documents/Spring2023/Graphics/DaDDi/output"  # Output folder (without ending "\\").
 
 # meshFolder = "output"  # Folder without ending "\\".
 # renderFolder = "output"  # Output folder (without ending "\\").
@@ -21,13 +21,17 @@ materialName = "Material"  # Material name for the imported object. The Material
 AmountOfNumbers = 1  # Amount of numbers in filepath, e.g., 000010.ply
 
 
+
 # Constants.
 M_PI = 3.1415926535897932
 END_FRAME = 20
 ANIM_STEP = 8 # amt of time between frames
+USE_ANIM = False
+
+
 
 # Grid Constants
-DIMENSIONS = (14,14,14)
+DIMENSIONS = (3,10,3)
 GRID_THICKNESS = 0.01 # thickness of grid lines
 BORDER_THICKNESS = 0.1 # thickness of grid border
 SHOW_GRID = True # show the grid lines; otherwise, the just the grid border is shown
@@ -36,8 +40,8 @@ SHOW_GRID = True # show the grid lines; otherwise, the just the grid border is s
 
 
 # define render engine
-# bpy.context.scene.render.engine = 'BLENDER_WORKBENCH'
-bpy.context.scene.render.engine = 'CYCLES'
+bpy.context.scene.render.engine = 'BLENDER_WORKBENCH'
+# bpy.context.scene.render.engine = 'CYCLES'
 #bpy.context.scene.render.engine = 'BLENDER_EEVEE'
 #bpy.context.scene.eevee.use_motion_blur = True
 
@@ -269,10 +273,10 @@ def RenderSequence(startFrame = 0, endFrame = 1):
 		if ink_mesh is not None:
 			ink_coords = np.array([v.co for v in importedObject.data.vertices])
 			data.append(ink_coords)
-			# coords = [(importedObject.matrix_world @ v.co) for v in importedObject.data.vertices]
-			# for i in range(len(ink_mesh.data.vertices)):
-			# 	ink_mesh.data.vertices[i].co = coords[i]
-			# # ink_mesh.data.vertices = coords
+			coords = [(importedObject.matrix_world @ v.co) for v in importedObject.data.vertices]
+			for i in range(len(ink_mesh.data.vertices)):
+				ink_mesh.data.vertices[i].co = coords[i]
+			# ink_mesh.data.vertices = coords
 			DeleteObject(importedObject)
 		else:
 			print("YO")
@@ -343,25 +347,26 @@ def RenderSequence(startFrame = 0, endFrame = 1):
 		bpy.ops.render.render(write_still = True) 
 
 		# Delete the imported object again.
-		#DeleteObject(importedObject)
+		# DeleteObject(importedObject)
 		# DeleteObject(light_object)
 	def insert_keyframe(fcurves, frame, values):
 		for fcu, val in zip(fcurves, values):
 			fcu.keyframe_points.insert(frame, val, options={'FAST'})
-	me = ink_mesh.data
-	action = bpy.data.actions.new("MeshAnimation")
-	me.animation_data_create()
-	me.animation_data.action = action
+	if USE_ANIM:
+		me = ink_mesh.data
+		action = bpy.data.actions.new("MeshAnimation")
+		me.animation_data_create()
+		me.animation_data.action = action
 
-	data_path = "vertices[%d].co"
+		data_path = "vertices[%d].co"
 
-	frames = list(range(startFrame, endFrame))
+		frames = list(range(startFrame, endFrame))
 
-	for index, v in enumerate(me.vertices):
-		fcurves = [action.fcurves.new(data_path % v.index, index =  i) for i in range(3)]
-		for t in frames:
-			co_kf = data[t-1][index]
-			insert_keyframe(fcurves, t, co_kf)
+		for index, v in enumerate(me.vertices):
+			fcurves = [action.fcurves.new(data_path % v.index, index =  i) for i in range(3)]
+			for t in frames:
+				co_kf = data[t-1][index]
+				insert_keyframe(fcurves, t, co_kf)
 
 
 		

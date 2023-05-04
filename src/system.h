@@ -8,9 +8,9 @@
 typedef Eigen::SparseMatrix<double> SpMat;
 
 // ============== Global Constants ==============
-const int WATERGRID_X        = 8; /// Water grid length
-const int WATERGRID_Y        = 8; /// Water grid height
-const int WATERGRID_Z        = 8; /// Water grid width
+const int WATERGRID_X        = 1; /// Water grid length
+const int WATERGRID_Y        = 10; /// Water grid height
+const int WATERGRID_Z        = 1; /// Water grid width
 const double CELL_DIM         = 1; /// Cell dimension (is a cube, so length == width == height)
 
 const double DENSITY          = 1; /// Fluid density
@@ -20,7 +20,7 @@ const double K_VORT           = 1; /// strength of vorticity
 const double VISCOSITY        = 1.0016; /// 1.0016  /// Fluid viscosity. The higher the viscosity, the thicker the liquid.
 const double ATMOSPHERIC_PRESSURE = 1; /// Starting number of particles
 
-const int INIT_NUM_PARTICLES = 5000; /// Starting number of particles
+const int INIT_NUM_PARTICLES = 1; /// Starting number of particles
 
 const Eigen::Vector3d gravity = Eigen::Vector3d(0, -0.58, 0);
 //const Eigen::Vector3d gravity = Eigen::Vector3d(0, -0.98, 0);
@@ -80,7 +80,7 @@ public:
     System();
 
     void init();
-    void solve();
+    double solve(double timeToNextRender);
     const std::vector<Particle>& getInkParticles();
 
     // check if particles or watergrid values for pos/vel have inf or nans
@@ -93,8 +93,8 @@ private:
     /// Water Grid
     std::unordered_map<Eigen::Vector3i, Cell, hash_func> m_waterGrid;
     void  initWaterGrid();
-    double updateWaterGrid();
-    double calcTimeStep();
+    double updateWaterGrid(double timeToNextRender);
+    double calcTimeStep(double timeToNextRender);
     void  updateVelocityField(double timeStep);
     Eigen::Vector3d traceParticle(double x, double y, double z, double t);
      Eigen::Vector3d traceParticle(double x, double y, double z, double t, CellBFECCField field);
@@ -130,10 +130,8 @@ private:
     Eigen::Vector3d getCurl(int i, int j, int k);
     Eigen::Vector3d getCurlGradient(int i, int j, int k);
     double           laplacianOperatorOnVelocity(int i, int j, int k, int idx);
-    Eigen::Vector3d getVelocity(Eigen::Vector3d pos);
     Eigen::Vector3d getVelocity(Eigen::Vector3d pos, CellBFECCField field);
     Eigen::Vector3i getCellIndexFromPoint(Eigen::Vector3d &pos);
-    double           getInterpolatedValue(double x, double y, double z, int idx);
     double           getInterpolatedValue(double x, double y, double z, int idx, CellBFECCField field);
     std::vector<Eigen::Vector3i> getGridNeighbors(int i, int j, int k);
     Eigen::Vector3d getVelocityFromField(Eigen::Vector3i pos, CellBFECCField field);
