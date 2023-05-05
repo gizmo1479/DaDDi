@@ -119,7 +119,13 @@ def create_border():
 	wf = cube.modifiers.new('WF', 'WIREFRAME') 
 	wf.thickness = BORDER_THICKNESS
 
-
+def setBackgroundColor():
+	# Set the background color to white
+	bpy.context.scene.render.film_transparent = False
+	bpy.context.scene.render.image_settings.color_mode = 'RGB'
+	bpy.context.scene.render.image_settings.color_depth = '8'
+	bpy.context.scene.world.use_nodes = True
+	bpy.context.scene.world.node_tree.nodes["Background"].inputs[0].default_value = (1.0, 1.0, 1.0, 1.0)
 # ---------- ---------- ---------- ---------- ---------- ----------
 # ---------- ---------- ---------- ---------- ---------- ----------
 # ---------- ---------- ---------- ---------- ---------- ----------
@@ -214,6 +220,9 @@ def clean_scene():
 def RenderSequence(startFrame = 0, endFrame = 1):
 	# Clear the scene:
 	clean_scene()
+
+	# Set background color
+	setBackgroundColor()
 
 	# create camera
 	camera_object = create_camera(location=(0.0, 0.0, 0.0))
