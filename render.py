@@ -26,7 +26,7 @@ RENDER_FRAMES = False
 RENDER_ENGINE = 'BLENDER_EEVEE'
 
 # Grid Constants
-DIMENSIONS = (3,10,3)
+DIMENSIONS = (8,8,8)
 GRID_THICKNESS = 0.01 # thickness of grid lines
 BORDER_THICKNESS = 0.1 # thickness of grid border
 SHOW_GRID = True # show the grid lines; otherwise, the just the grid border is shown
@@ -255,13 +255,6 @@ def create_animation(anim_data, mesh, frames):
 	def insert_keyframe(fcurves, frame, values):
 		for fcu, val in zip(fcurves, values):
 			fcu.keyframe_points.insert(frame, val, options={'FAST'})
-	# Set the render settings
-	bpy.context.scene.frame_end = len(frames)
-	bpy.context.scene.frame_step = 1
-	# enable motion blur
-	bpy.context.scene.render.use_motion_blur = True
-	# Set the shutter and samples to maximum values
-	bpy.context.scene.render.motion_blur_shutter = 1.0
 
 	me = mesh.data
 	action = bpy.data.actions.new("MeshAnimation")
@@ -307,6 +300,14 @@ def RenderSequence(startFrame = 0, endFrame = 1):
 	if SHOW_GRID:
 		create_grid()
 	create_border()
+
+	# set render settings
+	bpy.context.scene.frame_end = endFrame
+	bpy.context.scene.frame_step = 1
+	# enable motion blur
+	bpy.context.scene.render.use_motion_blur = True
+	# Set the shutter and samples to maximum values
+	bpy.context.scene.render.motion_blur_shutter = 1.0
 
 	# Loop over the frames.
 	ink_mesh = None
