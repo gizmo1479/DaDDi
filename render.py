@@ -318,13 +318,37 @@ def RenderSequence(startFrame = 0, endFrame = 1):
 				importedObject.modifiers[-1].node_group = node_group
 			nodes = node_group.nodes
 			
-			meshpoint = nodes.new(type="GeometryNodeMeshToPoints")
-			meshpoint.location.x += 400
-			meshpoint.location.y -= 50
+			# ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ----
+			# meshpoint = nodes.new(type="GeometryNodeMeshToPoints")
+			# meshpoint.location.x += 400
+			# meshpoint.location.y -= 50
+			# # connect
+			# links = node_group.links
+			# links.new(nodes["Group Input"].outputs["Geometry"], meshpoint.inputs["Mesh"])
+			# links.new(meshpoint.outputs["Points"], nodes["Group Output"].inputs["Geometry"])
+			#---- ---- ---- ---- ---- ---- ---- ---- ---- ---- -------- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---
+			instance_on_points = nodes.new(type="GeometryNodeInstanceOnPoints")
+			instance_on_points.location.x += 300
+			instance_on_points.location.y -= 50
+			realize_instances = nodes.new(type="GeometryNodeRealizeInstances")
+			realize_instances.location.x += 500
+			realize_instances.location.y -= 50
+			primitive = nodes.new(type="GeometryNodeMeshIcoSphere")
+			primitive.location.x -= 100
+			primitive.location.y -= 200
+			primitive.inputs["Radius"].default_value = 0.1
+			set_material= nodes.new(type="GeometryNodeSetMaterial")
+			set_material.location.x += 100
+			set_material.location.y -= 200
 			# connect
 			links = node_group.links
-			links.new(nodes["Group Input"].outputs["Geometry"], meshpoint.inputs["Mesh"])
-			links.new(meshpoint.outputs["Points"], nodes["Group Output"].inputs["Geometry"])
+			links.new(nodes["Group Input"].outputs["Geometry"], instance_on_points.inputs["Points"])
+			links.new(instance_on_points.outputs["Instances"], realize_instances.inputs["Geometry"])
+			links.new(realize_instances.outputs["Geometry"], nodes["Group Output"].inputs["Geometry"])
+			links.new(primitive.outputs["Mesh"], set_material.inputs["Geometry"])
+			links.new(set_material.outputs["Geometry"], instance_on_points.inputs["Instance"])
+			
+			
 
 			# lighting
 			if not light_created:
