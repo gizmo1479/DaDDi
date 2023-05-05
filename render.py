@@ -40,9 +40,9 @@ SHOW_GRID = True # show the grid lines; otherwise, the just the grid border is s
 
 
 # define render engine
-bpy.context.scene.render.engine = 'BLENDER_WORKBENCH'
+# bpy.context.scene.render.engine = 'BLENDER_WORKBENCH'
 # bpy.context.scene.render.engine = 'CYCLES'
-#bpy.context.scene.render.engine = 'BLENDER_EEVEE'
+bpy.context.scene.render.engine = 'BLENDER_EEVEE'
 #bpy.context.scene.eevee.use_motion_blur = True
 
 # Helper.
@@ -220,14 +220,26 @@ def RenderSequence(startFrame = 0, endFrame = 1):
 	bpy.context.scene.camera = camera_object
 
 	# make the material
-	material = bpy.data.materials.new(name="Particle Material")
+	material = bpy.data.materials.new(name="Ink Material")
 	material.use_nodes = True
 	material_output = material.node_tree.nodes.get('Material Output')
-	emission = material.node_tree.nodes.new('ShaderNodeEmission')
-	print("new shader node", emission)
-	emission.inputs['Strength'].default_value = 15.0
-	emission.inputs['Color'].default_value = (1, 0, 0, float(1.0))
-	material.node_tree.links.new(material_output.inputs[0], emission.outputs[0])
+	principled_bsdf = material.node_tree.nodes.get('Principled BSDF')
+	principled_bsdf.inputs["Emission"].default_value = (.01, .01, .01, float(1.0))
+	hue_saturation = material.node_tree.nodes.new('ShaderNodeHueSaturation')
+	hue_saturation.location.x -= 200
+	hue_saturation.location.y -= 50
+	attribute = material.node_tree.nodes.new('ShaderNodeAttribute')
+	attribute.location.x -= 500
+	attribute.location.y -= 50
+	# connect shader nodes
+	material.node_tree.links.new(attribute.outputs["Color"], hue_saturation.inputs["Color"])
+	material.node_tree.links.new(hue_saturation.outputs["Color"], principled_bsdf.inputs["Base Color"])
+	material.node_tree.links.new(principled_bsdf.outputs["BSDF"], material_output.inputs["Surface"])
+	# emission = material.node_tree.nodes.new('ShaderNodeEmission')
+	# print("new shader node", emission)
+	# emission.inputs['Strength'].default_value = 15.0
+	# emission.inputs['Color'].default_value = (1, 0, 0, float(1.0))
+	# material.node_tree.links.new(material_output.inputs[0], emission.outputs[0])
 	light_created = False
 
 	# create grid
@@ -340,6 +352,7 @@ def RenderSequence(startFrame = 0, endFrame = 1):
 			set_material= nodes.new(type="GeometryNodeSetMaterial")
 			set_material.location.x += 100
 			set_material.location.y -= 200
+			set_material.inputs["Material"].default_value = material
 			# connect
 			links = node_group.links
 			links.new(nodes["Group Input"].outputs["Geometry"], instance_on_points.inputs["Points"])
