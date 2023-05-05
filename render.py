@@ -13,15 +13,16 @@ import numpy as np
 # renderFolder = "/Users/helenhuang/course/cs2240/DaDDi/renders"  # Output folder (without ending "\\").
 
 meshFolder = "/Users/mandyhe/Documents/Spring2023/Graphics/DaDDi/output"  # Folder without ending "\\".
-renderFolder = "/Users/mandyhe/Documents/Spring2023/Graphics/DaDDi/output"  # Output folder (without ending "\\").
+renderFolder = "/Users/mandyhe/Documents/Spring2023/Graphics/DaDDi/output/render"  # Output folder (without ending "\\").
 AmountOfNumbers = 1  # Amount of numbers in filepath, e.g., 000010.ply
 
-# Constants -------------------------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------------------------
 #------------------------------------------------------------------------------------------------------------------------
 M_PI = 3.1415926535897932
-END_FRAME = 20
+END_FRAME = 160
 ANIM_STEP = 8 # amt of time between frames
-USE_ANIM = False
+USE_ANIM = True
+RENDER_FRAMES = False
 RENDER_ENGINE = 'BLENDER_EEVEE'
 
 # Grid Constants
@@ -32,13 +33,7 @@ SHOW_GRID = True # show the grid lines; otherwise, the just the grid border is s
 #------------------------------------------------------------------------------------------------------------------------
 #------------------------------------------------------------------------------------------------------------------------
 
-# define render engine
-# bpy.context.scene.render.engine = 'BLENDER_WORKBENCH'
-# bpy.context.scene.render.engine = 'CYCLES'
-# bpy.context.scene.render.engine = 'BLENDER_EEVEE'
-#bpy.context.scene.eevee.use_motion_blur = True
-
-# Helper.
+# Helpers
 
 def SelectOnlyGivenObject(object):
 	# Firs deselect all.
@@ -129,6 +124,25 @@ def setBackgroundColor():
 	bpy.context.scene.world.use_nodes = True
 	bpy.context.scene.world.node_tree.nodes["Background"].inputs[0].default_value = (1.0, 1.0, 1.0, 1.0)
 
+def makeInkMaterial():
+	material = bpy.data.materials.new(name="Ink Material")
+	material.use_nodes = True
+	material_output = material.node_tree.nodes.get('Material Output')
+	principled_bsdf = material.node_tree.nodes.get('Principled BSDF')
+	principled_bsdf.inputs["Emission"].default_value = (.01, .01, .01, float(1.0))
+	hue_saturation = material.node_tree.nodes.new('ShaderNodeHueSaturation')
+	hue_saturation.location.x -= 200
+	hue_saturation.location.y -= 50
+	attribute = material.node_tree.nodes.new('ShaderNodeAttribute')
+	attribute.location.x -= 500
+	attribute.location.y -= 50
+	# connect shader nodes
+	material.node_tree.links.new(attribute.outputs["Color"], hue_saturation.inputs["Color"])
+	material.node_tree.links.new(hue_saturation.outputs["Color"], principled_bsdf.inputs["Base Color"])
+	material.node_tree.links.new(principled_bsdf.outputs["BSDF"], material_output.inputs["Surface"])
+	return material
+
+
 def createGeometryNodes(importedObject, object_material):
 	## Make and link geometry nodes
 	# https://blender.stackexchange.com/questions/259867/geometry-nodes-as-mesh-generation-script
@@ -157,8 +171,7 @@ def createGeometryNodes(importedObject, object_material):
 		node_group = new_GeometryNodes_group()
 		importedObject.modifiers[-1].node_group = node_group
 	nodes = node_group.nodes
-	
-	# ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ----
+	# ---- ---- ---- ---- KEEP FOR NOW---- ---- ---- ---- ---- 
 	# meshpoint = nodes.new(type="GeometryNodeMeshToPoints")
 	# meshpoint.location.x += 400
 	# meshpoint.location.y -= 50
@@ -235,56 +248,43 @@ def clean_scene():
     
 # ---------- ---------- ---------- ---------- ---------- ----------
 
-# animation code
-# referenced: https://blender.stackexchange.com/questions/36902/how-to-keyframe-mesh-vertices-in-python
-
-# def setup_animation(ink_mesh):
-# 	action = bpy.data.actions.new("MeshAnimation")
-# 	ink_mesh.animation_data_create()
-# 	ink_mesh.animation_data.action = action
-# 	# instantiate fcurves xyz for each vertex
-# 	data_path = "vertices[%d].co"
-# 	fcurves = []
-# 	for v in ink_mesh.data.vertices:
-# 		fcurves.append([action.fcurves.new(data_path % v.index, index =  i) for i in range(3)])
-# 	return fcurves
-
-# def insert_keyframe(fcurves, frame, values):
-#     for fcu, val in zip(fcurves, values):
-#         fcu.keyframe_points.insert(frame, val, options={'FAST'})
-	
-# def keyframe_vertices(ink_mesh, frame, fcurves):
-# 	frame = frame * ANIM_STEP
-# 	for i in range(len(ink_mesh.data.vertices)):
-# 		curr_vert = ink_mesh.data.vertices[i]
-# 		vert_fcurve_xyz = fcurves[i]
-# 		insert_keyframe(vert_fcurve_xyz, frame, curr_vert.co)
-# 		# fcurves = [action.fcurves.new(data_path % v.index, index =  i) for i in range(3)]
-# 		# co_rest = v.co
-
-# 		# for t, value in zip(frames, values):
-# 		# 	co_kf = co_rest + value * vec_z
-# 		# 	insert_keyframe(fcurves, t, co_kf)
-
 def create_animation(anim_data, mesh, frames):
 	def insert_keyframe(fcurves, frame, values):
 		for fcu, val in zip(fcurves, values):
 			fcu.keyframe_points.insert(frame, val, options={'FAST'})
-	if USE_ANIM:
-		me = mesh.data
-		action = bpy.data.actions.new("MeshAnimation")
-		me.animation_data_create()
-		me.animation_data.action = action
-		data_path = "vertices[%d].co"
-		for index, v in enumerate(me.vertices):
-			fcurves = [action.fcurves.new(data_path % v.index, index =  i) for i in range(3)]
-			for t in frames:
-				co_kf = anim_data[t-1][index]
-				insert_keyframe(fcurves, t, co_kf)
+	# Set the render settings
+	bpy.context.scene.frame_end = len(frames)
+	bpy.context.scene.frame_step = 1
+	# enable motion blur
+	bpy.context.scene.render.use_motion_blur = True
+	# Set the shutter and samples to maximum values
+	bpy.context.scene.render.motion_blur_shutter = 1.0
 
-# ---------- ---------- ---------- ---------- ---------- ----------
-# ---------- ---------- ---------- ---------- ---------- ----------
-# ---------- ---------- ---------- ---------- ---------- ----------
+	me = mesh.data
+	action = bpy.data.actions.new("MeshAnimation")
+	me.animation_data_create()
+	me.animation_data.action = action
+	data_path = "vertices[%d].co"
+	for index, v in enumerate(me.vertices):
+		fcurves = [action.fcurves.new(data_path % v.index, index =  i) for i in range(3)]
+		for t in frames:
+			co_kf = anim_data[t-1][index]
+			insert_keyframe(fcurves, t, co_kf)
+
+def render_animation():
+	# Set the output directory and file format
+	output_dir = renderFolder
+	file_format = "AVI_JPEG"  # Or use "FFMPEG" for better video quality
+
+	# Set the output format and file name
+	bpy.context.scene.render.image_settings.file_format = file_format
+	bpy.context.scene.render.filepath = output_dir + "/animation"
+
+	# Render the animation
+	bpy.ops.render.render(animation=True)
+#------------------------------------------------------------------------------------------------------------------------
+#------------------------------------------------------------------------------------------------------------------------
+#------------------------------------------------------------------------------------------------------------------------
 
 def RenderSequence(startFrame = 0, endFrame = 1):
 	# Clear the scene:
@@ -298,39 +298,17 @@ def RenderSequence(startFrame = 0, endFrame = 1):
 	bpy.context.scene.camera = camera_object
 
 	# make the material
-	material = bpy.data.materials.new(name="Ink Material")
-	material.use_nodes = True
-	material_output = material.node_tree.nodes.get('Material Output')
-	principled_bsdf = material.node_tree.nodes.get('Principled BSDF')
-	principled_bsdf.inputs["Emission"].default_value = (.01, .01, .01, float(1.0))
-	hue_saturation = material.node_tree.nodes.new('ShaderNodeHueSaturation')
-	hue_saturation.location.x -= 200
-	hue_saturation.location.y -= 50
-	attribute = material.node_tree.nodes.new('ShaderNodeAttribute')
-	attribute.location.x -= 500
-	attribute.location.y -= 50
-	# connect shader nodes
-	material.node_tree.links.new(attribute.outputs["Color"], hue_saturation.inputs["Color"])
-	material.node_tree.links.new(hue_saturation.outputs["Color"], principled_bsdf.inputs["Base Color"])
-	material.node_tree.links.new(principled_bsdf.outputs["BSDF"], material_output.inputs["Surface"])
-	# emission = material.node_tree.nodes.new('ShaderNodeEmission')
-	# print("new shader node", emission)
-	# emission.inputs['Strength'].default_value = 15.0
-	# emission.inputs['Color'].default_value = (1, 0, 0, float(1.0))
-	# material.node_tree.links.new(material_output.inputs[0], emission.outputs[0])
-	light_created = False
+	material = makeInkMaterial()
 
 	# create grid
 	if SHOW_GRID:
 		create_grid()
 	create_border()
 
-	# enable motion blur
-	bpy.context.scene.render.use_motion_blur = True
-
-	ink_mesh = None
-	data = []
 	# Loop over the frames.
+	ink_mesh = None
+	light_created = False
+	data = []
 	for currentFrame in range(startFrame, endFrame):
 		# Import the object (Either obj or ply).
 		fullPathToMesh = MeshPath(folder = meshFolder, frame = currentFrame)
@@ -338,23 +316,21 @@ def RenderSequence(startFrame = 0, endFrame = 1):
 
 		# Get the just imported object.
 		importedObject = bpy.context.object
-        
-		# Get the smoke material. It has to be named that way. -> did this above in different way
-		# material = bpy.data.materials[materialName]
 			
 		## Camera
 		camera_object.location = [7,7,49]
 
+		
 		if ink_mesh is not None:
 			ink_coords = np.array([v.co for v in importedObject.data.vertices])
 			data.append(ink_coords)
-			coords = [(importedObject.matrix_world @ v.co) for v in importedObject.data.vertices]
-			for i in range(len(ink_mesh.data.vertices)):
-				ink_mesh.data.vertices[i].co = coords[i]
-			# ink_mesh.data.vertices = coords
+			if RENDER_FRAMES:
+				coords = [(importedObject.matrix_world @ v.co) for v in importedObject.data.vertices]
+				for i in range(len(ink_mesh.data.vertices)):
+					ink_mesh.data.vertices[i].co = coords[i]
+				# ink_mesh.data.vertices = coords
 			DeleteObject(importedObject)
 		else:
-			print("YO")
 			# Set the material of the object.
 			if len(importedObject.data.materials):
 				# assign to 1st material slot
@@ -373,26 +349,19 @@ def RenderSequence(startFrame = 0, endFrame = 1):
 			ink_coords = np.array([v.co for v in ink_mesh.data.vertices])
 			data.append(ink_coords)
 
-			# setup animation
-			# fcurves = setup_animation(ink_mesh)
-		
-		# bpy.ops.anim.keyframe_insert_menu(type='Location')
-		# keyframe_vertices(ink_mesh, currentFrame, fcurves)
-
 		# Render the scene.
-		bpy.data.scenes['Scene'].render.filepath = RenderPath(folder = renderFolder, frame = currentFrame)
-		bpy.data.scenes["Scene"].camera = camera_object
-		bpy.ops.render.render(write_still = True) 
+		if RENDER_FRAMES:
+			bpy.data.scenes['Scene'].render.filepath = RenderPath(folder = renderFolder, frame = currentFrame)
+			bpy.data.scenes["Scene"].camera = camera_object
+			bpy.ops.render.render(write_still = True) 
 
-		# Delete the imported object again.
-		# DeleteObject(importedObject)
-		# DeleteObject(light_object)
 	if USE_ANIM:
+		bpy.context.scene.render.use_motion_blur = True
 		frames = list(range(startFrame, endFrame))
 		create_animation(data, ink_mesh, frames)
+		render_animation()
 
 
-		
 		
 
 # Run the script.
