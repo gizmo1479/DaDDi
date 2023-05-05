@@ -121,6 +121,9 @@ def setBackgroundColor():
 	bpy.context.scene.render.film_transparent = False
 	bpy.context.scene.render.image_settings.color_mode = 'RGB'
 	bpy.context.scene.render.image_settings.color_depth = '8'
+	bpy.context.scene.view_settings.view_transform = 'Standard'
+	bpy.context.scene.view_settings.look = 'None'
+	bpy.context.scene.view_settings.exposure = 0.0
 	bpy.context.scene.world.use_nodes = True
 	bpy.context.scene.world.node_tree.nodes["Background"].inputs[0].default_value = (1.0, 1.0, 1.0, 1.0)
 
