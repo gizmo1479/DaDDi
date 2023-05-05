@@ -14,40 +14,31 @@ import numpy as np
 
 meshFolder = "/Users/mandyhe/Documents/Spring2023/Graphics/DaDDi/output"  # Folder without ending "\\".
 renderFolder = "/Users/mandyhe/Documents/Spring2023/Graphics/DaDDi/output"  # Output folder (without ending "\\").
-
-# meshFolder = "output"  # Folder without ending "\\".
-# renderFolder = "output"  # Output folder (without ending "\\").
-materialName = "Material"  # Material name for the imported object. The Material already needs to be created.
 AmountOfNumbers = 1  # Amount of numbers in filepath, e.g., 000010.ply
 
-
-
-# Constants.
+# Constants -------------------------------------------------------------------------------------------------------------
+#------------------------------------------------------------------------------------------------------------------------
 M_PI = 3.1415926535897932
 END_FRAME = 20
 ANIM_STEP = 8 # amt of time between frames
 USE_ANIM = False
-
-
+RENDER_ENGINE = 'BLENDER_EEVEE'
 
 # Grid Constants
 DIMENSIONS = (3,10,3)
 GRID_THICKNESS = 0.01 # thickness of grid lines
 BORDER_THICKNESS = 0.1 # thickness of grid border
 SHOW_GRID = True # show the grid lines; otherwise, the just the grid border is shown
-
-
-
+#------------------------------------------------------------------------------------------------------------------------
+#------------------------------------------------------------------------------------------------------------------------
 
 # define render engine
 # bpy.context.scene.render.engine = 'BLENDER_WORKBENCH'
 # bpy.context.scene.render.engine = 'CYCLES'
-bpy.context.scene.render.engine = 'BLENDER_EEVEE'
+# bpy.context.scene.render.engine = 'BLENDER_EEVEE'
 #bpy.context.scene.eevee.use_motion_blur = True
 
 # Helper.
-def Deg2Rad(degree):
-	return degree * (M_PI / 180.0)
 
 def SelectOnlyGivenObject(object):
 	# Firs deselect all.
@@ -78,6 +69,18 @@ def create_camera(location: Tuple[float, float, float]) -> bpy.types.Object:
     bpy.ops.object.camera_add(location=location)
     return bpy.context.object
 
+def focus_camera_on_object(camera_object):
+	# focus on object -> NOT USED BUT MAY USE LATER
+	for area in bpy.context.screen.areas:
+		if area.type == 'VIEW_3D':
+			for region in area.regions:
+				if region.type == 'WINDOW':
+					override = {'area': area, 'region': region}
+					bpy.ops.view3d.camera_to_view_selected(override)
+
+	camera_object.location[2] += 2
+	camera_object.values().lens = 50
+
 def create_light(location):
 	# Create light datablock
 	light_data = bpy.data.lights.new(name="pointlight-data", type='POINT')
@@ -94,17 +97,16 @@ def create_light(location):
 	light_object.location = location
 	return light_object
 
+
 def create_grid():
 	# create the first cube
 	bpy.ops.mesh.primitive_cube_add(enter_editmode=False, location=(0,0,0), scale=(0.5,0.5,0.5))
 	cube = bpy.context.selected_objects[0]
-
 	for i in range(3):
 		mod = cube.modifiers.new('Array_' + str(i), 'ARRAY')
 		mod.relative_offset_displace[0] = 0
 		mod.relative_offset_displace[i] = 1
 		mod.count = DIMENSIONS[i]
-
 	cube.modifiers.new('WD', 'WELD')
 	wf = cube.modifiers.new('WF', 'WIREFRAME') 
 	wf.thickness = GRID_THICKNESS
@@ -126,11 +128,70 @@ def setBackgroundColor():
 	bpy.context.scene.render.image_settings.color_depth = '8'
 	bpy.context.scene.world.use_nodes = True
 	bpy.context.scene.world.node_tree.nodes["Background"].inputs[0].default_value = (1.0, 1.0, 1.0, 1.0)
-# ---------- ---------- ---------- ---------- ---------- ----------
-# ---------- ---------- ---------- ---------- ---------- ----------
+
+def createGeometryNodes(importedObject, object_material):
+	## Make and link geometry nodes
+	# https://blender.stackexchange.com/questions/259867/geometry-nodes-as-mesh-generation-script
+	# 2) Add the GeometryNodes Modifier
+	modifier = importedObject.modifiers.new("GeometryNodesNew", "NODES")
+	print(modifier.name, modifier)
+	# https://blender.stackexchange.com/questions/249763/python-geometry-node-trees/249779#249779
+	def new_GeometryNodes_group():
+		''' Create a new empty node group that can be used
+			in a GeometryNodes modifier.
+		'''
+		node_group = bpy.data.node_groups.new('GeometryNodes', 'GeometryNodeTree')
+		inNode = node_group.nodes.new('NodeGroupInput')
+		inNode.outputs.new('NodeSocketGeometry', 'Geometry')
+		outNode = node_group.nodes.new('NodeGroupOutput')
+		outNode.inputs.new('NodeSocketGeometry', 'Geometry')
+		node_group.links.new(inNode.outputs['Geometry'], outNode.inputs['Geometry'])
+		return node_group
+	# In 3.2 Adding the modifier no longer automatically creates a node group.
+	# This test could be done with versioning, but this approach is more general
+	# in case a later version of Blender goes back to including a node group.
+	node_group = None
+	if importedObject.modifiers[-1].node_group:
+		node_group = importedObject.modifiers[-1].node_group    
+	else:
+		node_group = new_GeometryNodes_group()
+		importedObject.modifiers[-1].node_group = node_group
+	nodes = node_group.nodes
+	
+	# ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ----
+	# meshpoint = nodes.new(type="GeometryNodeMeshToPoints")
+	# meshpoint.location.x += 400
+	# meshpoint.location.y -= 50
+	# # connect
+	# links = node_group.links
+	# links.new(nodes["Group Input"].outputs["Geometry"], meshpoint.inputs["Mesh"])
+	# links.new(meshpoint.outputs["Points"], nodes["Group Output"].inputs["Geometry"])
+	#---- ---- ---- ---- ---- ---- ---- ---- ---- ---- -------- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---
+	instance_on_points = nodes.new(type="GeometryNodeInstanceOnPoints")
+	instance_on_points.location.x += 300
+	instance_on_points.location.y -= 50
+	realize_instances = nodes.new(type="GeometryNodeRealizeInstances")
+	realize_instances.location.x += 500
+	realize_instances.location.y -= 50
+	primitive = nodes.new(type="GeometryNodeMeshIcoSphere")
+	primitive.location.x -= 100
+	primitive.location.y -= 200
+	primitive.inputs["Radius"].default_value = 0.1
+	set_material= nodes.new(type="GeometryNodeSetMaterial")
+	set_material.location.x += 100
+	set_material.location.y -= 200
+	set_material.inputs["Material"].default_value = object_material
+	# connect
+	links = node_group.links
+	links.new(nodes["Group Input"].outputs["Geometry"], instance_on_points.inputs["Points"])
+	links.new(instance_on_points.outputs["Instances"], realize_instances.inputs["Geometry"])
+	links.new(realize_instances.outputs["Geometry"], nodes["Group Output"].inputs["Geometry"])
+	links.new(primitive.outputs["Mesh"], set_material.inputs["Geometry"])
+	links.new(set_material.outputs["Geometry"], instance_on_points.inputs["Instance"])
+
+
 # ---------- ---------- ---------- ---------- ---------- ----------
 # CODE FROM: https://github.com/CGArtPython/bpy_building_blocks_examples/tree/main/clean_scene
-
 def purge_orphans():
     if bpy.app.version >= (3, 0, 0):
         bpy.ops.outliner.orphans_purge(
@@ -142,12 +203,12 @@ def purge_orphans():
         if result.pop() != "CANCELLED":
             purge_orphans()
 
-
 def clean_scene():
     """
     Removing all of the objects, collection, materials, particles,
     textures, images, curves, meshes, actions, nodes, and worlds from the scene
     """
+    bpy.context.scene.render.engine = RENDER_ENGINE
     if bpy.context.active_object and bpy.context.active_object.mode == "EDIT":
         bpy.ops.object.editmode_toggle()
 
@@ -170,11 +231,8 @@ def clean_scene():
     # create a new world data block
     bpy.ops.world.new()
     bpy.context.scene.world = bpy.data.worlds["World"]
-
     purge_orphans()
     
-# ---------- ---------- ---------- ---------- ---------- ----------
-# ---------- ---------- ---------- ---------- ---------- ----------
 # ---------- ---------- ---------- ---------- ---------- ----------
 
 # animation code
@@ -208,10 +266,21 @@ def clean_scene():
 # 		# 	co_kf = co_rest + value * vec_z
 # 		# 	insert_keyframe(fcurves, t, co_kf)
 
-
-
-
-
+def create_animation(anim_data, mesh, frames):
+	def insert_keyframe(fcurves, frame, values):
+		for fcu, val in zip(fcurves, values):
+			fcu.keyframe_points.insert(frame, val, options={'FAST'})
+	if USE_ANIM:
+		me = mesh.data
+		action = bpy.data.actions.new("MeshAnimation")
+		me.animation_data_create()
+		me.animation_data.action = action
+		data_path = "vertices[%d].co"
+		for index, v in enumerate(me.vertices):
+			fcurves = [action.fcurves.new(data_path % v.index, index =  i) for i in range(3)]
+			for t in frames:
+				co_kf = anim_data[t-1][index]
+				insert_keyframe(fcurves, t, co_kf)
 
 # ---------- ---------- ---------- ---------- ---------- ----------
 # ---------- ---------- ---------- ---------- ---------- ----------
@@ -256,15 +325,11 @@ def RenderSequence(startFrame = 0, endFrame = 1):
 		create_grid()
 	create_border()
 
-
 	# enable motion blur
 	bpy.context.scene.render.use_motion_blur = True
-	# fcurves = None
+
 	ink_mesh = None
 	data = []
-	
-
-
 	# Loop over the frames.
 	for currentFrame in range(startFrame, endFrame):
 		# Import the object (Either obj or ply).
@@ -276,19 +341,8 @@ def RenderSequence(startFrame = 0, endFrame = 1):
         
 		# Get the smoke material. It has to be named that way. -> did this above in different way
 		# material = bpy.data.materials[materialName]
-
 			
 		## Camera
-		# focus on object
-		# for area in bpy.context.screen.areas:
-		# 	if area.type == 'VIEW_3D':
-		# 		for region in area.regions:
-		# 			if region.type == 'WINDOW':
-		# 				override = {'area': area, 'region': region}
-		# 				bpy.ops.view3d.camera_to_view_selected(override)
-
-		# camera_object.location[2] += 2
-		# camera_object.values().lens = 50
 		camera_object.location = [7,7,49]
 
 		if ink_mesh is not None:
@@ -309,69 +363,7 @@ def RenderSequence(startFrame = 0, endFrame = 1):
 				# if there is no material append it
 				importedObject.data.materials.append(material)
 			## Make and link geometry nodes
-			# https://blender.stackexchange.com/questions/259867/geometry-nodes-as-mesh-generation-script
-			# 2) Add the GeometryNodes Modifier
-			modifier = importedObject.modifiers.new("GeometryNodesNew", "NODES")
-			print(modifier.name, modifier)
-
-			# https://blender.stackexchange.com/questions/249763/python-geometry-node-trees/249779#249779
-			def new_GeometryNodes_group():
-				''' Create a new empty node group that can be used
-					in a GeometryNodes modifier.
-				'''
-				node_group = bpy.data.node_groups.new('GeometryNodes', 'GeometryNodeTree')
-				inNode = node_group.nodes.new('NodeGroupInput')
-				inNode.outputs.new('NodeSocketGeometry', 'Geometry')
-				outNode = node_group.nodes.new('NodeGroupOutput')
-				outNode.inputs.new('NodeSocketGeometry', 'Geometry')
-				node_group.links.new(inNode.outputs['Geometry'], outNode.inputs['Geometry'])
-				# inNode.location = Vector((-1.5*inNode.width, 0))
-				# outNode.location = Vector((1.5*outNode.width, 0))
-				return node_group
-			# In 3.2 Adding the modifier no longer automatically creates a node group.
-			# This test could be done with versioning, but this approach is more general
-			# in case a later version of Blender goes back to including a node group.
-			node_group = None
-			if importedObject.modifiers[-1].node_group:
-				node_group = importedObject.modifiers[-1].node_group    
-			else:
-				node_group = new_GeometryNodes_group()
-				importedObject.modifiers[-1].node_group = node_group
-			nodes = node_group.nodes
-			
-			# ---- ---- ---- ---- ---- ---- ---- ---- ---- ---- ----
-			# meshpoint = nodes.new(type="GeometryNodeMeshToPoints")
-			# meshpoint.location.x += 400
-			# meshpoint.location.y -= 50
-			# # connect
-			# links = node_group.links
-			# links.new(nodes["Group Input"].outputs["Geometry"], meshpoint.inputs["Mesh"])
-			# links.new(meshpoint.outputs["Points"], nodes["Group Output"].inputs["Geometry"])
-			#---- ---- ---- ---- ---- ---- ---- ---- ---- ---- -------- ---- ---- ---- ---- ---- ---- ---- ---- ---- ---
-			instance_on_points = nodes.new(type="GeometryNodeInstanceOnPoints")
-			instance_on_points.location.x += 300
-			instance_on_points.location.y -= 50
-			realize_instances = nodes.new(type="GeometryNodeRealizeInstances")
-			realize_instances.location.x += 500
-			realize_instances.location.y -= 50
-			primitive = nodes.new(type="GeometryNodeMeshIcoSphere")
-			primitive.location.x -= 100
-			primitive.location.y -= 200
-			primitive.inputs["Radius"].default_value = 0.1
-			set_material= nodes.new(type="GeometryNodeSetMaterial")
-			set_material.location.x += 100
-			set_material.location.y -= 200
-			set_material.inputs["Material"].default_value = material
-			# connect
-			links = node_group.links
-			links.new(nodes["Group Input"].outputs["Geometry"], instance_on_points.inputs["Points"])
-			links.new(instance_on_points.outputs["Instances"], realize_instances.inputs["Geometry"])
-			links.new(realize_instances.outputs["Geometry"], nodes["Group Output"].inputs["Geometry"])
-			links.new(primitive.outputs["Mesh"], set_material.inputs["Geometry"])
-			links.new(set_material.outputs["Geometry"], instance_on_points.inputs["Instance"])
-			
-			
-
+			createGeometryNodes(importedObject, material)
 			# lighting
 			if not light_created:
 				create_light(camera_object.location)
@@ -395,24 +387,9 @@ def RenderSequence(startFrame = 0, endFrame = 1):
 		# Delete the imported object again.
 		# DeleteObject(importedObject)
 		# DeleteObject(light_object)
-	def insert_keyframe(fcurves, frame, values):
-		for fcu, val in zip(fcurves, values):
-			fcu.keyframe_points.insert(frame, val, options={'FAST'})
 	if USE_ANIM:
-		me = ink_mesh.data
-		action = bpy.data.actions.new("MeshAnimation")
-		me.animation_data_create()
-		me.animation_data.action = action
-
-		data_path = "vertices[%d].co"
-
 		frames = list(range(startFrame, endFrame))
-
-		for index, v in enumerate(me.vertices):
-			fcurves = [action.fcurves.new(data_path % v.index, index =  i) for i in range(3)]
-			for t in frames:
-				co_kf = data[t-1][index]
-				insert_keyframe(fcurves, t, co_kf)
+		create_animation(data, ink_mesh, frames)
 
 
 		
