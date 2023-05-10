@@ -15,19 +15,34 @@ const double CELL_DIM         = 1; /// Cell dimension (is a cube, so length == w
 
 const double DENSITY          = 1; /// Fluid density
 
+<<<<<<< Updated upstream
 const double K_VORT           = 1; /// strength of vorticity
 
 const double VISCOSITY        = 1.0016; /// 1.0016  /// Fluid viscosity. The higher the viscosity, the thicker the liquid.
 const double ATMOSPHERIC_PRESSURE = 1; /// Starting number of particles
+=======
+const float DENSITY = .95; /// Fluid density
+>>>>>>> Stashed changes
 
 const int INIT_NUM_PARTICLES = 5000; /// Starting number of particles
 
 const Eigen::Vector3d gravity = Eigen::Vector3d(0, -0.58, 0);
 //const Eigen::Vector3d gravity = Eigen::Vector3d(0, -0.98, 0);
 
+<<<<<<< Updated upstream
 const double K_CFL = 0.2f;
 const double MIN_TIMESTEP = 0.01f;
 const double MAX_TIMESTEP = 1.f;
+=======
+const int INIT_NUM_PARTICLES = 10000; /// Starting number of particles
+
+//const Eigen::Vector3f gravity = Eigen::Vector3f(0, -9.0, 0);
+const Eigen::Vector3f gravity = Eigen::Vector3f(0, -0.08, 0);
+
+const float K_CFL = 0.2f;
+const float MIN_TIMESTEP = 0.01f;
+const float MAX_TIMESTEP = 1.f;
+>>>>>>> Stashed changes
 // ==============================================
 
 enum CellBFECCField {
@@ -107,6 +122,7 @@ private:
     void  applyPressure(double timeStep);
     Eigen::SparseLU<SpMat> llt;
     void initPressureA();
+    void applyVorticity(float timeStep);
 
     // vorticity
     void applyVorticity(double timestep);

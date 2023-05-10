@@ -11,7 +11,22 @@ void System::init() {
     initWaterGrid();
 
     /// Initialize ink particles
+<<<<<<< Updated upstream
     initParticles();
+=======
+    if (PART_FILE != "") {
+        initFromFile();
+    }
+    else {
+        // Initial particles in a square shape
+//        initParticles();
+
+        // Emit particles in a hemisphere shape
+        for (int i = 1; i <= 10; i++) {
+            emitParticleHemisphere(0.1 * i);
+        }
+    }
+>>>>>>> Stashed changes
 }
 
 
@@ -53,6 +68,39 @@ int nonZeroRand() {
     int ret = rand();
     return ret;
 //    return (ret != 0) ? ret : 1;
+}
+
+void System::emitParticleHemisphere(float radius) {
+    // emit outwards from a hemisphere
+    float fraction = M_PI / 12.f;
+    float twoPi = M_PI * 2.f;
+    Vector3f surfaceNormal = Vector3f(0, -1, 0); // sampling point on middle of ceiling, pointing downwards
+    Vector3f up = Vector3f(0, 1, 0);
+    Vector3f axis = (surfaceNormal + up).normalized();
+    AngleAxisf rot(M_PI, axis);
+    for (float i = 0; i < twoPi; i += fraction) {
+        for (float j = 0; j < M_PI; j += fraction) {
+            float x = radius*sin(j) * sin(i);
+            float y = radius*cos(j);
+            float z = radius*sin(j) * cos(i);
+
+            // starting velocity of particle
+            Vector3f vel = rot * Vector3f(x, y, z);
+
+            // starting position of particle
+            Vector3f pos = Vector3f(WATERGRID_X/2.f, WATERGRID_Y-0.1f, WATERGRID_Z/2.f) + radius * vel;
+
+            Particle p {
+                .position = pos,
+                .velocity = vel,
+                .opacity = 1.f,
+                .lifeTime = 5.f,
+            };
+
+            this->m_ink.push_back(p);
+        }
+    }
+
 }
 
 /// Returns a random position within the specified ranges

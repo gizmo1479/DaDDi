@@ -54,14 +54,24 @@ void System::updateVelocityField(double timeStep) {
     applyBFECC(timeStep);
 #ifndef QT_NO_DEBUG
     checkNanAndInf();
+<<<<<<< Updated upstream
 #endif
+=======
+    #pragma omp parallel for
+    for (auto &kv : m_waterGrid) {
+        kv.second.oldVelocity = kv.second.currVelocity;
+    }
+>>>>>>> Stashed changes
 
     applyExternalForces(timeStep);
 #ifndef QT_NO_DEBUG
     checkNanAndInf();
+<<<<<<< Updated upstream
 #endif
 
     /// Update each cell's old_velocity to be the curr_velocity
+=======
+>>>>>>> Stashed changes
     #pragma omp parallel for
     for (auto &kv : m_waterGrid) {
         kv.second.oldVelocity = kv.second.currVelocity;
@@ -70,7 +80,14 @@ void System::updateVelocityField(double timeStep) {
     applyViscosity(timeStep);
 #ifndef QT_NO_DEBUG
     checkNanAndInf();
+<<<<<<< Updated upstream
 #endif
+=======
+    #pragma omp parallel for
+    for (auto &kv : m_waterGrid) {
+        kv.second.oldVelocity = kv.second.currVelocity;
+    }
+>>>>>>> Stashed changes
 
     /// Update each cell's old_velocity to be the curr_velocity
     #pragma omp parallel for
@@ -91,8 +108,13 @@ void System::updateVelocityField(double timeStep) {
 
 //    applyVorticity(timeStep);
     checkNanAndInf();
+    #pragma omp parallel for
+    for (auto &kv : m_waterGrid) {
+        kv.second.oldVelocity = kv.second.currVelocity;
+    }
 
-    /// Update each cell's old_velocity to be the curr_velocity
+    applyVorticity(timeStep);
+    checkNanAndInf();
     #pragma omp parallel for
     for (auto &kv : m_waterGrid) {
         kv.second.oldVelocity = kv.second.currVelocity;
@@ -273,6 +295,7 @@ Vector3d System::applyWhirlPoolForce(Vector3i index) {
 //    }
 //}
 
+<<<<<<< Updated upstream
 /// Applies the external force term in the Navier-Stokes equation to each cell's velocity
 void System::applyExternalForces(double timeStep) {
     std::unordered_set<Vector3i, hash_func> cellsForcesApplied;
@@ -289,16 +312,92 @@ void System::applyExternalForces(double timeStep) {
     for (Vector3i cellIdx: cellsForcesApplied) {
         updateForce(cellIdx, timeStep);
     }
+=======
+void System::applyExternalForces(float timeStep) {
+//    std::unordered_set<Vector3i, hash_func> cellsForcesApplied;
+//    assert(BUFFER_SIZE >=1);
+//    for (int i = 0; i < m_ink.size(); i++) {
+//        Vector3i centerCellIndices = getCellIndexFromPoint(m_ink[i].position);
+//        cellsForcesApplied.insert(centerCellIndices);
+//        std::vector<Vector3i> neighbors = m_waterGrid[centerCellIndices].neighbors;
+//        for (int j = 0; j < neighbors.size(); j++) {
+//            cellsForcesApplied.insert(neighbors[j]);
+//            if (BUFFER_SIZE >=2) {
+//                std::vector<Vector3i> neighbors2 = m_waterGrid[neighbors[j]].neighbors;
+////                cellsForcesApplied.insert(neighbors2.begin(), neighbors2.end());
+//                for (int k = 0; k < neighbors2.size(); k++) {
+//                    cellsForcesApplied.insert(neighbors2[k]);
+//                    if (BUFFER_SIZE >=3) {
+//                        std::vector<Vector3i> neighbors3 = m_waterGrid[neighbors2[k]].neighbors;
+//                        cellsForcesApplied.insert(neighbors3.begin(), neighbors3.end());
+//                    }
+//                }
+//            }
+//        }
+//    }
+
+//    for (Vector3i cellIdx: cellsForcesApplied) {
+//        updateForce(cellIdx, timeStep);
+//    }
+
+    for (int i = 0; i < WATERGRID_X; i++) {
+        for (int j = 0; j < WATERGRID_Y; j++) {
+            for (int k = 0; k < WATERGRID_Z; k++) {
+                updateForce(Vector3i(i, j, k), timeStep);
+            }
+        }
+    }
+>>>>>>> Stashed changes
 }
 
 void System::updateForce(Vector3i idx, double timeStep){
 
     m_waterGrid[idx].currVelocity += timeStep * gravity; /// Apply gravity
 //    m_waterGrid[idx].currVelocity += timeStep * applyWhirlPoolForce(idx); /// Apply whirlpool force
+<<<<<<< Updated upstream
     auto v = m_waterGrid[idx];
     m_waterGrid[idx].forceApplied = true;
 }
 
+=======
+    m_waterGrid[idx].forceApplied = true;
+}
+
+Vector3f System::getVort(int i, int j, int k){
+    Vector3f curl = m_waterGrid[Vector3i(i, j, k)].curl;
+    if (curl == Vector3f(0, 0, 0)) {
+        return Vector3f(0, 0, 0);
+    }
+    Vector3f N = getCurlGradient(i, j, k) / curl.norm();
+    Vector3f F_vort = K_VORT * (N.cross(curl));
+//    std::cout << "curl" << curl[0] << "," << curl[1] << "," << curl[2] << std::endl;
+//    std::cout << "N" << N[0] << "," << N[1] << "," << N[2] << std::endl;
+    return F_vort;
+}
+
+void System::applyVorticity(float timeStep) {
+    /// For each cell, calculate the curl
+    #pragma omp parallel for collapse(3)
+    for (int i = 0; i < WATERGRID_X; i++) {
+        for (int j = 0; j < WATERGRID_Y; j++) {
+            for (int k = 0; k < WATERGRID_Z; k++) {
+                m_waterGrid[Vector3i(i, j, k)].curl = getCurl(i, j, k);
+            }
+        }
+    }
+
+    /// For each cell, apply the vorticity confinement force
+    #pragma omp parallel for collapse(3)
+    for (int i = 0; i < WATERGRID_X; i++) {
+        for (int j = 0; j < WATERGRID_Y; j++) {
+            for (int k = 0; k < WATERGRID_Z; k++) {
+                m_waterGrid[Vector3i(i, j, k)].currVelocity += timeStep * getVort(i, j, k);
+            }
+        }
+    }
+}
+
+>>>>>>> Stashed changes
 /// Applies the viscosity term in the Navier-Stokes equation to each cell's velocity
 void System::applyViscosity(double timeStep) {
     /// For each cell, apply the viscosity to each cell's currVelocity

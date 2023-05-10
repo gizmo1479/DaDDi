@@ -7,7 +7,13 @@ void System::solve(){
     updateParticles(timeStep);
 }
 
+<<<<<<< Updated upstream
 void System::updateParticles(double timeStep){
+=======
+void System::updateParticles(float timeStep){
+//    timeStep = 0.1;
+
+>>>>>>> Stashed changes
     checkNanAndInf();
     #pragma omp parallel for
     for (Particle &inkPtcl: m_ink) {
